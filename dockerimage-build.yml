@@ -1,0 +1,48 @@
+---
+- name: "Creating Docker Image"
+  hosts: localhost
+  become: true
+  vars:
+    git_url: "https://github.com/BetcyBabu/Dockerizing-a-Python-web-app.git"
+    docker_username: betcybabu
+    docker_password: ************
+    image_name: betcybabu/flaskapp
+  tasks:
+    - name: "Installing Docker and the required softwares"
+      yum:
+        name:
+          - docker
+          - git
+          - python2-pip
+        state: present
+    - name: "Starting Docker service"
+      service:
+        name: docker
+        state: restarted
+        enabled: true
+    - name: "Installing Docker client for Python"
+      pip:
+        name: docker-py
+        state: present
+    - name: "Cloning git repository"
+      git:
+        repo: "{{ git_url}}"
+        dest: /var/flaskapp
+      register: git_status
+    - name: "Login into Image repository"
+      when: git_status.changed == true
+      docker_login:
+        username: "{{ docker_username }}"
+        password: "{{docker_password}}"
+    - name: "Build Docker image from Dockerfile"
+      when: git_status.changed == true
+      docker_image:
+        build:
+          path: /var/flaskapp/
+        name: "{{image_name}}"
+        source: build
+        push: yes
+        tag : "{{ item }}"
+      with_items:
+        - latest
+        - "{{git_status.after}}"
